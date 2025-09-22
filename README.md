@@ -1,1 +1,2 @@
 # CKB-STM32-MSC-UX-Standalone-U5
+test
