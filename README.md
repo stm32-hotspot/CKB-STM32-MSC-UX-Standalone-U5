@@ -25,7 +25,14 @@ Software:
 4) The `USBX_Device_Process()` function is called continuously in the main loop to run the USBX stack.  
 5) Connect CN4 type C to your PC and see the magic 
 
+### Enabling DMA Mode
+If you would like to enable DMA mode, open main.h and uncomment the following define:
 
+```c
+#define DMA
+```
+
+This enables DMA support for USB data transfers, which can improve performance.
 ## Expected behavior
 
 When plugged into a PC host, the STM32U5G9J-DK1 enumerates as a USB MSC device. During enumeration, the device provides all required descriptors (device descriptor, configuration descriptor, string descriptors) for host identification. Once enumeration completes successfully, a new removable drive appears on the host system. Standard read, write, and format operations can be performed as with any other removable drive.

@@ -112,10 +112,27 @@ UINT USBD_STORAGE_Read(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
 {
    UINT status = UX_SUCCESS;
   /* USER CODE BEGIN USBD_STORAGE_Read */
-   uint32_t timeout = 10000;
 //  UX_PARAMETER_NOT_USED(storage_instance);
 //  UX_PARAMETER_NOT_USED(lun);
 //  UX_PARAMETER_NOT_USED(media_status);
+#ifdef DMA
+     /* Start reading from the Dma */
+    status =  BSP_MMC_ReadBlocks_DMA((uint32_t*)data_pointer, lba, number_blocks);
+    if(status != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Wait for Rx Transfer completion */
+    while (MMC_READ_FLAG == 0)
+    {
+    }
+
+    MMC_READ_FLAG = 0;
+
+    status = UX_STATE_NEXT;
+#else
+       uint32_t timeout = 10000;
   if (BSP_MMC_ReadBlocks((uint32_t*)data_pointer, lba, number_blocks, timeout) == BSP_ERROR_NONE)
   {
     // Wait until MMC card is ready for next operation
@@ -132,7 +149,7 @@ UINT USBD_STORAGE_Read(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
  {
    while(1);
  }
-
+#endif
 #if (ENABLE_MMC_DMA_CACHE_MAINTENANCE == 1)
   // Cache maintenance if needed (adjust alignedAddr and size accordingly)
   uint32_t alignedAddr = ((uint32_t)data_pointer) & ~0x1F;
@@ -161,10 +178,38 @@ UINT USBD_STORAGE_Write(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
 {
   UINT status = UX_SUCCESS;
     /* USER CODE BEGIN USBD_STORAGE_Write */
-  uint32_t timeout = 1000000;
 //  UX_PARAMETER_NOT_USED(storage_instance);
 //  UX_PARAMETER_NOT_USED(lun);
 //  UX_PARAMETER_NOT_USED(media_status);
+#ifdef DMA
+    /* Start the Dma write */
+  BSP_MMC_WriteBlocks_DMA((uint32_t*)data_pointer, lba, number_blocks);
+
+    if(status != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Wait for Tx Transfer completion */
+    while (MMC_WRITE_FLAG == 0)
+    {
+    }
+
+    MMC_WRITE_FLAG = 0;
+
+   // Wait until MMC card is ready for next operation
+    if (BSP_MMC_GetCardState() == MMC_TRANSFER_OK)
+    {
+      status = UX_SUCCESS;
+    }
+    else
+    {
+      status = UX_BUSY;
+    }
+    status = UX_STATE_NEXT;
+  
+#else
+    uint32_t timeout = 1000000;
  if (BSP_MMC_WriteBlocks((uint32_t*)data_pointer, lba, number_blocks, timeout) == BSP_ERROR_NONE)
  {
    // Wait until MMC card is ready for next operation
@@ -181,7 +226,9 @@ UINT USBD_STORAGE_Write(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
  else
  {
    while(1);
+   
  }
+#endif
 
   // Cache maintenance is not needed if MPU is configured as write-through (as per your comment)
   /* USER CODE END USBD_STORAGE_Write */
@@ -350,6 +397,7 @@ ULONG USBD_STORAGE_GetMediaBlocklength(VOID)
 }
 
 /* USER CODE BEGIN 1 */
+#ifdef DMA
 void BSP_MMC_WriteCpltCallback(void)
 {
   MMC_WRITE_FLAG=1;
@@ -360,4 +408,5 @@ void BSP_MMC_WriteCpltCallback(void)
   MMC_READ_FLAG=1;
   
 }
+#endif
 /* USER CODE END 1 */
